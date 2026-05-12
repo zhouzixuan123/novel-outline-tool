@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小说大纲助手</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f5f0e8; color: #3d3929; display: flex; height: 100vh; overflow: hidden; }
+
+/* 侧边栏 */
+.sidebar { width: 240px; background: #fff; padding: 20px 0; display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #e8e0d0; }
+.logo { font-size: 18px; font-weight: bold; padding: 0 20px 20px; color: #b8453a; border-bottom: 1px solid #f0e8d8; margin-bottom: 4px; }
+.nav-item { padding: 12px 20px; cursor: pointer; transition: .2s; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b6250; margin: 2px 8px; border-radius: 8px; }
+.nav-item:hover { background: #faf5ec; color: #3d3929; }
+.nav-item.active { background: #fef3ee; border-left: 3px solid #c46b5e; color: #b8453a; font-weight: 600; }
+.nav-icon { width: 20px; text-align: center; }
+
+/* 主区域 */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.header { padding: 20px 30px; background: #fff; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e8e0d0; }
+.header h1 { font-size: 20px; color: #3d3929; font-weight: 700; }
+
+/* 按钮 */
+.btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; font-weight: 500; }
+.btn-primary { background: #c46b5e; color: #fff; box-shadow: 0 2px 8px rgba(180,100,70,.2); }
+.btn-primary:hover { background: #b05a4e; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(180,100,70,.3); }
+.btn-outline { background: transparent; border: 1.5px solid #c46b5e; color: #c46b5e; }
+.btn-outline:hover { background: #fef6f3; }
+.btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+.btn-danger { background: transparent; border: 1.5px solid #d9776a; color: #d9776a; }
+.btn-danger:hover { background: #fef5f4; }
+
+.content { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+
+/* 表单 */
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 13px; color: #8b8068; font-weight: 500; }
+.form-group input, .form-group textarea, .form-group select { padding: 10px 14px; border: 1.5px solid #e0d8c8; border-radius: 8px; background: #fdfcf9; color: #3d3929; font-size: 14px; font-family: inherit; resize: vertical; transition: border-color .2s; }
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: #c46b5e; background: #fff; box-shadow: 0 0 0 3px rgba(196,107,94,.08); }
+.form-group input::placeholder, .form-group textarea::placeholder { color: #c0b898; }
+textarea { min-height: 80px; }
+
+/* 卡片 */
+.card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 12px rgba(60,50,30,.06); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 16px; font-weight: 700; color: #3d3929; }
+
+/* 大纲树 */
+.tree { list-style: none; }
+.tree li { position: relative; }
+.tree-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: .15s; color: #4a4333; }
+.tree-item:hover { background: #faf6ef; }
+.tree-item.selected { background: #fef6f3; border: 1.5px solid #eccac0; }
+.tree-toggle { width: 20px; text-align: center; font-size: 11px; color: #b8a88; cursor: pointer; user-select: none; flex-shrink: 0; }
+.tree-label { flex: 1; font-size: 14px; }
+.tree-actions { display: none; gap: 4px; }
+.tree-item:hover .tree-actions { display: flex; }
+.tree-children { margin-left: 20px; }
+.tree-placeholder { color: #b8a888; font-size: 13px; padding: 8px 10px; }
+
+/* 角色卡片 */
+.character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.character-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(60,50,30,.06); transition: .2s; }
+.character-card:hover { box-shadow: 0 4px 20px rgba(60,50,30,.1); transform: translateY(-2px); }
+.character-card .name { font-size: 17px; font-weight: 700; color: #3d3929; }
+.character-card .role { font-size: 12px; color: #c46b5e; margin: 4px 0 8px; font-weight: 500; background: #fef6f3; display: inline-block; padding: 2px 10px; border-radius: 12px; }
+.character-card .desc { font-size: 13px; color: #6b6250; line-height: 1.7; }
+.character-card .actions { display: flex; gap: 8px; margin-top: 14px; }
+
+/* 弹窗 */
+.modal-overlay { position: fixed; inset: 0; background: rgba(40,30,15,.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: #fff; border-radius: 16px; padding: 28px; width: 480px; max-width: 90vw; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px rgba(40,30,15,.15); }
+.modal h3 { color: #3d3929; font-size: 18px; font-weight: 700; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* 统计 */
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 2px 12px rgba(60,50,30,.06); transition: .2s; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(60,50,30,.1); }
+.stat-number { font-size: 38px; font-weight: 800; color: #b8453a; }
+.stat-label { font-size: 13px; color: #8b8068; margin-top: 4px; font-weight: 500; }
+
+/* 大纲节点编辑 */
+.outline-editor { display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: calc(100vh - 160px); }
+.outline-tree-panel { background: #fff; border-radius: 12px; padding: 16px; overflow-y: auto; box-shadow: 0 2px 12px rgba(60,50,30,.06); }
+.outline-detail-panel { background: #fff; border-radius: 12px; padding: 24px; overflow-y: auto; box-shadow: 0 2px 12px rgba(60,50,30,.06); display: flex; flex-direction: column; gap: 16px; }
+.empty-state { color: #c0b898; text-align: center; margin-top: 60px; font-size: 14px; }
+
+.inline-btn { background: none; border: none; color: #c46b5e; cursor: pointer; font-size: 12px; padding: 2px 6px; font-weight: 500; border-radius: 4px; }
+.inline-btn:hover { background: #fef6f3; text-decoration: none; }
+
+.word-count { font-size: 12px; color: #b8a888; }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d8cfb8; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c0b898; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="logo">📖 小说大纲</div>
+  <div class="nav-item active" data-page="overview">
+    <span class="nav-icon">📋</span> 项目概览
+  </div>
+  <div class="nav-item" data-page="outline">
+    <span class="nav-icon">🗂️</span> 大纲编辑器
+  </div>
+  <div class="nav-item" data-page="characters">
+    <span class="nav-icon">👥</span> 角色管理
+  </div>
+  <div class="nav-item" data-page="relationships">
+    <span class="nav-icon">🔗</span> 角色关系图
+  </div>
+  <div class="nav-item" data-page="timeline">
+    <span class="nav-icon">📅</span> 时间线
+  </div>
+  <div style="margin-top: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px;">
+    <button class="btn btn-outline btn-sm" onclick="exportData()">📤 导出 JSON</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📥 导入 JSON</button>
+    <input type="file" id="importInput" style="display:none" accept=".json" onchange="importData(event)">
+    <button class="btn btn-danger btn-sm" onclick="resetAll()">🔄 重置数据</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="header">
+    <h1 id="pageTitle">项目概览</h1>
+    <button class="btn btn-primary" id="headerBtn" style="display:none">+ 新建</button>
+  </div>
+  <div class="content" id="contentArea"></div>
+</div>
+
+<script>
+// ==================== 数据模型 ====================
+const DEFAULT_DATA = {
+  title: '我的小说',
+  author: '',
+  synopsis: '',
+  genre: '',
+  volumes: [
+    {
+      id: 'vol_1',
+      title: '第一卷',
+      chapters: [
+        { id: 'ch_1', title: '第一章', summary: '', plotPoints: [], status: 'draft' }
+      ]
+    }
+  ],
+  characters: [],
+  relationships: [],
+  timeline: []
+};
+
+let data = loadData();
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem('novel_outline');
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+  } catch { return JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+}
+
+function saveData() { localStorage.setItem('novel_outline', JSON.stringify(data)); }
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = (data.title || 'novel') + '_outline.json'; a.click();
+}
+
+function importData(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => { try {
+    data = JSON.parse(reader.result); saveData(); render(currentPage);
+  } catch (err) { alert('导入失败: JSON 格式不正确'); } };
+  reader.readAsText(f); e.target.value = '';
+}
+
+function resetAll() { if (confirm('确定要重置所有数据吗？此操作不可撤销。')) {
+  data = JSON.parse(JSON.stringify(DEFAULT_DATA)); saveData(); render(currentPage); }
+}
+
+// ==================== 导航 ====================
+let currentPage = 'overview';
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    currentPage = item.dataset.page;
+    render(currentPage);
+  });
+});
+
+function setHeader(title, showBtn = false, btnText = '', btnAction = null) {
+  document.getElementById('pageTitle').textContent = title;
+  const btn = document.getElementById('headerBtn');
+  btn.style.display = showBtn ? 'block' : 'none';
+  if (showBtn) { btn.textContent = btnText; btn.onclick = btnAction; }
+}
+
+// ==================== 渲染 ====================
+function render(page) {
+  const area = document.getElementById('contentArea');
+  switch (page) {
+    case 'overview': renderOverview(area); break;
+    case 'outline': renderOutline(area); break;
+    case 'characters': renderCharacters(area); break;
+    case 'relationships': renderRelationships(area); break;
+    case 'timeline': renderTimeline(area); break;
+  }
+}
+
+// ---------- 项目概览 ----------
+function renderOverview(area) {
+  setHeader('项目概览');
+  area.innerHTML = `
+    <div class="stats">
+      <div class="stat-card"><div class="stat-number">${data.volumes.length}</div><div class="stat-label">卷</div></div>
+      <div class="stat-card"><div class="stat-number">${data.volumes.reduce((s,v) => s + v.chapters.length, 0)}</div><div class="stat-label">章节</div></div>
+      <div class="stat-card"><div class="stat-number">${data.characters.length}</div><div class="stat-label">角色</div></div>
+      <div class="stat-card"><div class="stat-number">${data.timeline.length}</div><div class="stat-label">时间线事件</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📖 作品信息</span></div>
+      <div style="display:grid; gap:12px;">
+        <div class="form-group"><label>书名</label><input value="${escapeHtml(data.title)}" onchange="data.title=this.value;saveData()"></div>
+        <div class="form-group"><label>作者</label><input value="${escapeHtml(data.author||'')}" onchange="data.author=this.value;saveData()" placeholder="笔名"></div>
+        <div class="form-group"><label>类型</label><input value="${escapeHtml(data.genre||'')}" onchange="data.genre=this.value;saveData()" placeholder="玄幻 / 都市 / 科幻..."></div>
+        <div class="form-group"><label>简介</label><textarea onchange="data.synopsis=this.value;saveData()" placeholder="用一段话概括你的故事...">${escapeHtml(data.synopsis||'')}</textarea></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📑 目录结构</span></div>
+      <div id="tocPreview"></div>
+    </div>
+  `;
+  renderTocPreview();
+}
+
+function renderTocPreview() {
+  const container = document.getElementById('tocPreview');
+  if (!container) return;
+  let html = '<ul class="tree">';
+  data.volumes.forEach(vol => {
+    html += `<li><div class="tree-item"><span style="font-weight:bold">📘 ${escapeHtml(vol.title)}</span><span class="word-count">${vol.chapters.length} 章</span></div><ul class="tree-children">`;
+    vol.chapters.forEach(ch => {
+      html += `<li><div class="tree-item"><span>📄 ${escapeHtml(ch.title)}</span><span style="font-size:12px;color:#b8a888">${ch.status === 'done' ? '✅' : ch.status === 'draft' ? '📝' : '📌'}</span></div></li>`;
+    });
+    html += '</ul></li>';
+  });
+  html += '</ul>';
+  container.innerHTML = html;
+}
+
+// ---------- 大纲编辑器 ----------
+let selectedOutlineNode = null;
+
+function renderOutline(area) {
+  setHeader('大纲编辑器', true, '+ 新建卷', addVolume);
+  area.innerHTML = `
+    <div class="outline-editor">
+      <div class="outline-tree-panel" id="outlineTree"></div>
+      <div class="outline-detail-panel" id="outlineDetail">
+        <div class="empty-state">👈 选择左侧的卷或章节进行编辑</div>
+      </div>
+    </div>
+  `;
+  renderOutlineTree();
+}
+
+function renderOutlineTree() {
+  const container = document.getElementById('outlineTree');
+  if (!container) return;
+  let html = '<ul class="tree">';
+  data.volumes.forEach(vol => {
+    const vsel = selectedOutlineNode === vol.id ? ' selected' : '';
+    html += `<li>
+      <div class="tree-item${vsel}" data-id="${vol.id}" data-type="volume">
+        <span class="tree-toggle" data-id="${vol.id}">▼</span>
+        <span class="tree-label">📘 ${escapeHtml(vol.title)}</span>
+        <span class="word-count">${vol.chapters.length}章</span>
+        <span class="tree-actions">
+          <button class="inline-btn" data-action="add-chapter" data-id="${vol.id}">+章</button>
+          <button class="inline-btn" data-action="delete-volume" data-id="${vol.id}">🗑</button>
+        </span>
+      </div>
+      <ul class="tree-children">`;
+    vol.chapters.forEach(ch => {
+      const csel = selectedOutlineNode === ch.id ? ' selected' : '';
+      html += `<li>
+        <div class="tree-item${csel}" data-id="${ch.id}" data-type="chapter" style="padding-left:28px">
+          <span class="tree-label">📄 ${escapeHtml(ch.title)}</span>
+          <span style="font-size:12px;color:#b8a888">${ch.status === 'done' ? '✅' : ch.status === 'draft' ? '📝' : '📌'}</span>
+          <span class="tree-actions">
+            <button class="inline-btn" data-action="delete-chapter" data-id="${ch.id}">🗑</button>
+          </span>
+        </div>
+      </li>`;
+    });
+    html += '</ul></li>';
+  });
+  html += '</ul>';
+  container.innerHTML = html;
+
+  // 绑定事件
+  container.querySelectorAll('.tree-item').forEach(item => {
+    item.addEventListener('click', e => {
+      if (e.target.closest('.tree-actions') || e.target.closest('.tree-toggle')) return;
+      selectOutlineNode(item.dataset.id, item.dataset.type);
+    });
+  });
+  container.querySelectorAll('.tree-toggle').forEach(t => {
+    t.addEventListener('click', e => { e.stopPropagation(); toggleTree(e.target); });
+  });
+  container.querySelectorAll('[data-action="add-chapter"]').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); addChapter(b.dataset.id); });
+  });
+  container.querySelectorAll('[data-action="delete-volume"]').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); deleteVolume(b.dataset.id); });
+  });
+  container.querySelectorAll('[data-action="delete-chapter"]').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); deleteChapter(b.dataset.id); });
+  });
+}
+
+function toggleTree(el) {
+  const ul = el.parentElement.parentElement.querySelector('.tree-children');
+  if (ul) { ul.style.display = ul.style.display === 'none' ? '' : 'none'; el.textContent = ul.style.display === 'none' ? '▶' : '▼'; }
+}
+
+function selectOutlineNode(id, type) {
+  selectedOutlineNode = id;
+  renderOutlineTree();
+  const detail = document.getElementById('outlineDetail');
+  if (!detail) return;
+
+  if (type === 'volume') {
+    const vol = data.volumes.find(v => v.id === id);
+    if (!vol) return;
+    detail.innerHTML = `
+      <h3 style="color:#3d3929">📘 卷信息</h3>
+      <div class="form-group"><label>卷标题</label><input value="${escapeHtml(vol.title)}" onchange="updateVolume('${id}', 'title', this.value)"></div>
+      <div style="color:#8b8068;font-size:13px">包含 ${vol.chapters.length} 个章节</div>
+    `;
+  } else {
+    let ch = null, vol = null;
+    for (const v of data.volumes) { ch = v.chapters.find(c => c.id === id); if (ch) { vol = v; break; } }
+    if (!ch || !vol) return;
+    detail.innerHTML = `
+      <h3 style="color:#3d3929">📄 章节信息</h3>
+      <div class="form-group"><label>章节标题</label><input value="${escapeHtml(ch.title)}" onchange="updateChapter('${id}', 'title', this.value)"></div>
+      <div class="form-group"><label>状态</label><select onchange="updateChapter('${id}', 'status', this.value)">
+        <option value="draft" ${ch.status==='draft'?'selected':''}>📝 草稿</option>
+        <option value="outlined" ${ch.status==='outlined'?'selected':''}>📌 已大纲</option>
+        <option value="done" ${ch.status==='done'?'selected':''}>✅ 已完成</option>
+      </select></div>
+      <div class="form-group"><label>章节概要</label><textarea onchange="updateChapter('${id}', 'summary', this.value)" placeholder="这章发生了什么...">${escapeHtml(ch.summary||'')}</textarea></div>
+      <div class="form-group">
+        <label>情节要点 <button class="inline-btn" onclick="addPlotPoint('${id}')">+ 添加</button></label>
+        <div id="plotPointsList">${renderPlotPoints(ch)}</div>
+      </div>
+    `;
+  }
+}
+
+function renderPlotPoints(ch) {
+  if (!ch.plotPoints || ch.plotPoints.length === 0) return '<div style="color:#c0b898;font-size:13px">暂无情节要点</div>';
+  return ch.plotPoints.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0e8d8">
+      <span style="font-size:12px;color:#b8a888">${i+1}.</span>
+      <input value="${escapeHtml(p)}" onchange="updatePlotPoint('${ch.id}', ${i}, this.value)" style="flex:1;padding:6px 10px;background:#fdfcf9;border:1.5px solid #e0d8c8;border-radius:6px;color:#3d3929;font-size:13px">
+      <button class="inline-btn" onclick="deletePlotPoint('${ch.id}', ${i})" style="color:#d9776a">×</button>
+    </div>
+  `).join('');
+}
+
+function addVolume() {
+  const title = prompt('卷标题:', `第${data.volumes.length+1}卷`);
+  if (!title) return;
+  data.volumes.push({ id: 'vol_' + Date.now(), title, chapters: [] });
+  saveData(); renderOutline(document.getElementById('contentArea'));
+}
+
+function addChapter(volId) {
+  const title = prompt('章节标题:');
+  if (!title) return;
+  const vol = data.volumes.find(v => v.id === volId); if (!vol) return;
+  vol.chapters.push({ id: 'ch_' + Date.now(), title, summary: '', plotPoints: [], status: 'draft' });
+  saveData(); renderOutline(document.getElementById('contentArea'));
+}
+
+function deleteVolume(id) { if (!confirm('删除整个卷及其所有章节？')) return;
+  data.volumes = data.volumes.filter(v => v.id !== id);
+  if (selectedOutlineNode === id) selectedOutlineNode = null;
+  saveData(); renderOutline(document.getElementById('contentArea'));
+}
+
+function deleteChapter(id) { if (!confirm('删除此章节？')) return;
+  data.volumes.forEach(v => v.chapters = v.chapters.filter(c => c.id !== id));
+  if (selectedOutlineNode === id) selectedOutlineNode = null;
+  saveData(); renderOutline(document.getElementById('contentArea'));
+}
+
+function updateVolume(id, key, val) {
+  const vol = data.volumes.find(v => v.id === id); if (vol) { vol[key] = val; saveData(); }
+}
+
+function updateChapter(id, key, val) {
+  for (const v of data.volumes) {
+    const ch = v.chapters.find(c => c.id === id);
+    if (ch) { ch[key] = val; saveData(); break; }
+  }
+}
+
+function addPlotPoint(chId) {
+  for (const v of data.volumes) {
+    const ch = v.chapters.find(c => c.id === chId);
+    if (ch) { if (!ch.plotPoints) ch.plotPoints = []; ch.plotPoints.push(''); saveData(); selectOutlineNode(chId, 'chapter'); break; }
+  }
+}
+
+function updatePlotPoint(chId, idx, val) {
+  for (const v of data.volumes) {
+    const ch = v.chapters.find(c => c.id === chId);
+    if (ch && ch.plotPoints) { ch.plotPoints[idx] = val; saveData(); break; }
+  }
+}
+
+function deletePlotPoint(chId, idx) {
+  for (const v of data.volumes) {
+    const ch = v.chapters.find(c => c.id === chId);
+    if (ch && ch.plotPoints) { ch.plotPoints.splice(idx, 1); saveData(); selectOutlineNode(chId, 'chapter'); break; }
+  }
+}
+
+// ---------- 角色管理 ----------
+function renderCharacters(area) {
+  setHeader('角色管理', true, '+ 新建角色', addCharacter);
+  if (data.characters.length === 0) {
+    area.innerHTML = `<div class="card"><div class="empty-state">还没有角色，点击右上角"新建角色"开始</div></div>`; return;
+  }
+  area.innerHTML = `<div class="character-grid">${data.characters.map((c,i) => `
+    <div class="character-card">
+      <div class="name">${escapeHtml(c.name)}</div>
+      <div class="role">${escapeHtml(c.role||'未设定身份')}</div>
+      <div class="desc">${escapeHtml(c.description||'暂无描述')}</div>
+      <div class="desc" style="margin-top:4px"><strong>性格:</strong> ${escapeHtml(c.personality||'未设定')}</div>
+      <div class="actions">
+        <button class="btn btn-outline btn-sm" onclick="editCharacter(${i})">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCharacter(${i})">删除</button>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function addCharacter() {
+  showCharacterModal(-1);
+}
+
+function editCharacter(idx) {
+  showCharacterModal(idx);
+}
+
+function deleteCharacter(idx) {
+  if (!confirm(`确定删除角色「${data.characters[idx].name}」？`)) return;
+  data.characters.splice(idx, 1); saveData(); renderCharacters(document.getElementById('contentArea'));
+}
+
+function showCharacterModal(idx) {
+  const c = idx >= 0 ? data.characters[idx] : { name: '', role: '', description: '', personality: '' };
+  const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${idx >= 0 ? '编辑角色' : '新建角色'}</h3>
+      <div class="form-group"><label>姓名</label><input id="chName" value="${escapeHtml(c.name)}"></div>
+      <div class="form-group"><label>身份/职业</label><input id="chRole" value="${escapeHtml(c.role||'')}" placeholder="主角 / 女主 / 反派 / 导师..."></div>
+      <div class="form-group"><label>性格特点</label><input id="chPersonality" value="${escapeHtml(c.personality||'')}" placeholder="冷静、腹黑、热血..."></div>
+      <div class="form-group"><label>详细描述</label><textarea id="chDesc" placeholder="外貌、背景、动机...">${escapeHtml(c.description||'')}</textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">取消</button>
+        <button class="btn btn-primary" id="saveChBtn">保存</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#saveChBtn').addEventListener('click', () => {
+    const obj = {
+      name: overlay.querySelector('#chName').value.trim(),
+      role: overlay.querySelector('#chRole').value.trim(),
+      personality: overlay.querySelector('#chPersonality').value.trim(),
+      description: overlay.querySelector('#chDesc').value.trim()
+    };
+    if (!obj.name) { alert('请输入角色姓名'); return; }
+    if (idx >= 0) data.characters[idx] = obj; else data.characters.push(obj);
+    saveData(); overlay.remove(); renderCharacters(document.getElementById('contentArea'));
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ---------- 角色关系图 ----------
+function renderRelationships(area) {
+  setHeader('角色关系图', true, '+ 添加关系', addRelationship);
+  if (data.characters.length < 2) {
+    area.innerHTML = `<div class="card"><div class="empty-state">需要至少 2 个角色才能建立关系</div></div>`; return;
+  }
+  let html = '';
+  if (data.relationships.length > 0) {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
+    data.relationships.forEach((r, i) => {
+      html += `<div class="card" style="min-width:220px">
+        <div style="font-weight:bold;color:#3d3929">${escapeHtml(r.from)} <span style="color:#c46b5e">→ ${escapeHtml(r.type)}</span> → ${escapeHtml(r.to)}</div>
+        <div style="font-size:13px;color:#6b6250;margin-top:4px">${escapeHtml(r.description||'')}</div>
+        <button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="data.relationships.splice(${i},1);saveData();render('relationships')">删除</button>
+      </div>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="card"><div class="empty-state">还没有角色关系，点击右上角"添加关系"</div></div>';
+  }
+  area.innerHTML = html;
+}
+
+function addRelationship() {
+  if (data.characters.length < 2) return;
+  const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>添加角色关系</h3>
+      <div class="form-group"><label>角色 A</label><select id="relFrom">${data.characters.map(c => `<option>${escapeHtml(c.name)}</option>`).join('')}</select></div>
+      <div class="form-group"><label>关系类型</label><input id="relType" placeholder="朋友 / 师徒 / 恋人 / 仇敌..."></div>
+      <div class="form-group"><label>角色 B</label><select id="relTo">${data.characters.map(c => `<option>${escapeHtml(c.name)}</option>`).join('')}</select></div>
+      <div class="form-group"><label>描述</label><textarea id="relDesc" placeholder="关系详情..."></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">取消</button>
+        <button class="btn btn-primary" id="saveRelBtn">保存</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#saveRelBtn').addEventListener('click', () => {
+    const rel = {
+      from: overlay.querySelector('#relFrom').value,
+      type: overlay.querySelector('#relType').value.trim(),
+      to: overlay.querySelector('#relTo').value,
+      description: overlay.querySelector('#relDesc').value.trim()
+    };
+    if (!rel.type) { alert('请输入关系类型'); return; }
+    if (rel.from === rel.to) { alert('不能选择同一个角色'); return; }
+    data.relationships.push(rel); saveData(); overlay.remove(); render('relationships');
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ---------- 时间线 ----------
+function renderTimeline(area) {
+  setHeader('时间线', true, '+ 添加事件', addTimelineEvent);
+  if (data.timeline.length === 0) {
+    area.innerHTML = `<div class="card"><div class="empty-state">还没有时间线事件，点击右上角"添加事件"</div></div>`; return;
+  }
+  const sorted = [...data.timeline].sort((a,b) => (a.order||0) - (b.order||0));
+  area.innerHTML = `
+    <div style="position:relative;padding-left:30px;border-left:2px solid #d4c4a8">
+      ${sorted.map((e,i) => `
+        <div style="margin-bottom:20px;position:relative">
+          <div style="position:absolute;left:-37px;top:4px;width:12px;height:12px;background:#c46b5e;border-radius:50%"></div>
+          <div class="card">
+            <div style="font-weight:bold;color:#3d3929">${escapeHtml(e.title)}</div>
+            ${e.chapterRef ? `<div style="font-size:12px;color:#c46b5e;margin:4px 0">📎 ${escapeHtml(e.chapterRef)}</div>` : ''}
+            <div style="font-size:13px;color:#6b6250">${escapeHtml(e.description||'')}</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-outline btn-sm" onclick="editTimelineEvent(${i})">编辑</button>
+              <button class="btn btn-danger btn-sm" onclick="data.timeline.splice(${i},1);saveData();render('timeline')">删除</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function addTimelineEvent() { showTimelineModal(-1); }
+function editTimelineEvent(idx) { showTimelineModal(idx); }
+
+function showTimelineModal(idx) {
+  const e = idx >= 0 ? data.timeline[idx] : { title: '', description: '', chapterRef: '', order: data.timeline.length + 1 };
+  const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${idx >= 0 ? '编辑时间线事件' : '添加时间线事件'}</h3>
+      <div class="form-group"><label>事件标题</label><input id="tlTitle" value="${escapeHtml(e.title)}" placeholder="如：主角获得金手指"></div>
+      <div class="form-group"><label>关联章节</label><input id="tlChapter" value="${escapeHtml(e.chapterRef||'')}" placeholder="如：第三章"></div>
+      <div class="form-group"><label>序号 (决定排序)</label><input id="tlOrder" type="number" value="${e.order||1}"></div>
+      <div class="form-group"><label>描述</label><textarea id="tlDesc">${escapeHtml(e.description||'')}</textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">取消</button>
+        <button class="btn btn-primary" id="saveTlBtn">保存</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#saveTlBtn').addEventListener('click', () => {
+    const obj = {
+      title: overlay.querySelector('#tlTitle').value.trim(),
+      chapterRef: overlay.querySelector('#tlChapter').value.trim(),
+      order: parseInt(overlay.querySelector('#tlOrder').value) || 0,
+      description: overlay.querySelector('#tlDesc').value.trim()
+    };
+    if (!obj.title) { alert('请输入事件标题'); return; }
+    if (idx >= 0) data.timeline[idx] = obj; else data.timeline.push(obj);
+    saveData(); overlay.remove(); render('timeline');
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ==================== 工具函数 ====================
+function escapeHtml(str) {
+  const div = document.createElement('div'); div.textContent = str; return div.innerHTML;
+}
+
+// ==================== 初始化 ====================
+render('overview');
+</script>
+</body>
+</html>
