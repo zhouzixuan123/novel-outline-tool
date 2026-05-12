@@ -225,9 +225,9 @@ function updateSyncUI() {
     pullBtn.disabled = true;
     pushBtn.disabled = true;
   } else if (!gistId) {
-    statusEl.innerHTML = '✅ Token 已就绪<br>首次推送将自动创建 Gist';
+    statusEl.innerHTML = '✅ Token 已就绪<br>点击拉取可搜索已有 Gist，或推送新建';
     tokenBtn.textContent = '🔑 已配置';
-    pullBtn.disabled = true;
+    pullBtn.disabled = false;
     pushBtn.disabled = false;
   } else {
     const t = localStorage.getItem('gist_last_sync') || '';
@@ -326,6 +326,24 @@ async function pullFromGist() {
   pullBtn.disabled = true;
   pullBtn.textContent = '⏳ 拉取中...';
   try {
+    if (!gistId) {
+      pullBtn.textContent = '🔍 搜索中...';
+      const listResp = await fetch('https://api.github.com/gists?per_page=100', {
+        headers: { 'Authorization': `Bearer ${gistToken}`, 'Accept': 'application/vnd.github+json' }
+      });
+      if (!listResp.ok) {
+        const err = await listResp.json().catch(() => ({}));
+        throw new Error('搜索 Gist 失败: ' + (err.message || `HTTP ${listResp.status}`));
+      }
+      const gists = await listResp.json();
+      const found = gists.find(g => g.description === '小说大纲数据' && g.files['novel_outline.json']);
+      if (!found) {
+        throw new Error('未找到小说大纲的 Gist，请先在另一设备上推送一次。');
+      }
+      gistId = found.id;
+      localStorage.setItem('gist_id', gistId);
+      updateSyncUI();
+    }
     const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
       headers: { 'Authorization': `Bearer ${gistToken}`, 'Accept': 'application/vnd.github+json' }
     });
