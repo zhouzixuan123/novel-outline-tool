@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd)",
+      "Bash(sed -i '127s/.*/    <button class=\"btn btn-danger btn-sm\" onclick=\"resetAll\\(\\)\">🔄 重置数据<\\\\/button>/' \"D:\\\\小说大纲程序\\\\index.html\")",
+      "Bash(sed -i '128s/.*/  <\\\\/div>/' \"D:\\\\小说大纲程序\\\\index.html\")",
+      "Bash(sed -i '129s/.*/<\\\\/div>/' \"D:\\\\小说大纲程序\\\\index.html\")",
+      "Bash(sed -i '131s/.*/<div class=\"main\">/' \"D:\\\\小说大纲程序\\\\index.html\")"
+    ]
+  }
+}

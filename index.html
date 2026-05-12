@@ -121,6 +121,8 @@ textarea { min-height: 80px; }
   <div style="margin-top: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px;">
     <button class="btn btn-outline btn-sm" onclick="exportData()">📤 导出 JSON</button>
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📥 导入 JSON</button>
+    <button class="btn btn-primary btn-sm" onclick="syncToFile()">☁️ 同步到文件</button>
+    <button class="btn btn-outline btn-sm" onclick="selectProjectDir()" id="dirBtn">📁 选择项目目录</button>
     <input type="file" id="importInput" style="display:none" accept=".json" onchange="importData(event)">
     <button class="btn btn-danger btn-sm" onclick="resetAll()">🔄 重置数据</button>
   </div>
@@ -134,6 +136,7 @@ textarea { min-height: 80px; }
   <div class="content" id="contentArea"></div>
 </div>
 
+<script src="data.js"></script>
 <script>
 // ==================== 数据模型 ====================
 const DEFAULT_DATA = {
@@ -160,7 +163,9 @@ let data = loadData();
 function loadData() {
   try {
     const saved = localStorage.getItem('novel_outline');
-    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+    if (saved) return JSON.parse(saved);
+    if (window.APP_DATA && window.APP_DATA.volumes) return JSON.parse(JSON.stringify(window.APP_DATA));
+    return JSON.parse(JSON.stringify(DEFAULT_DATA));
   } catch { return JSON.parse(JSON.stringify(DEFAULT_DATA)); }
 }
 
@@ -170,6 +175,75 @@ function exportData() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = (data.title || 'novel') + '_outline.json'; a.click();
+}
+
+let dirHandle = null;
+
+(async function initDir() {
+  try {
+    const req = indexedDB.open('app_settings', 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore('settings'); };
+    req.onsuccess = () => {
+      const db = req.result;
+      if (db.objectStoreNames.contains('settings')) {
+        const tx = db.transaction('settings', 'readonly');
+        const getReq = tx.objectStore('settings').get('dirHandle');
+        getReq.onsuccess = () => {
+          if (getReq.result) {
+            dirHandle = getReq.result;
+            updateDirBtn();
+          }
+        };
+      }
+    };
+  } catch (e) { /* IndexedDB not available */ }
+})();
+
+function updateDirBtn() {
+  const btn = document.getElementById('dirBtn');
+  if (btn) btn.textContent = dirHandle ? '📁 已绑定项目目录' : '📁 选择项目目录';
+}
+
+async function selectProjectDir() {
+  try {
+    dirHandle = await window.showDirectoryPicker();
+    const req = indexedDB.open('app_settings', 1);
+    req.onsuccess = () => {
+      const tx = req.result.transaction('settings', 'readwrite');
+      tx.objectStore('settings').put(dirHandle, 'dirHandle');
+    };
+    updateDirBtn();
+    alert('已绑定项目目录！现在\"同步到文件\"会直接写入。');
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    alert('此浏览器不支持 File System Access API，请使用 Chrome 或 Edge。');
+  }
+}
+
+async function syncToFile() {
+  const content = 'window.APP_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
+
+  if (dirHandle) {
+    try {
+      const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        const fileHandle = await dirHandle.getFileHandle('data.js', { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(content);
+        await writable.close();
+        alert('已同步到 data.js，记得 git commit & push！');
+        return;
+      }
+    } catch (e) {
+      console.error('自动写入失败，改用下载:', e);
+      dirHandle = null;
+      updateDirBtn();
+    }
+  }
+
+  const blob = new Blob([content], { type: 'application/javascript' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'data.js'; a.click();
 }
 
 function importData(e) {
