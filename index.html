@@ -294,11 +294,15 @@ async function findOrCreateGist() {
     throw new Error('搜索 Gist 失败: ' + (err.message || `HTTP ${listResp.status}`));
   }
   const gists = await listResp.json();
-  const found = gists.find(g => g.description === '小说大纲数据' && g.files['novel_outline.json']);
-  if (found) {
-    gistId = found.id;
+  const matches = gists.filter(g => g.description === '小说大纲数据' && g.files['novel_outline.json']);
+  if (matches.length > 0) {
+    matches.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    gistId = matches[0].id;
     localStorage.setItem('gist_id', gistId);
     updateSyncUI();
+    if (matches.length > 1) {
+      alert('检测到 ' + matches.length + ' 个同名 Gist，已自动选用最新版本。\n建议手动清理多余 Gist: https://gist.github.com/');
+    }
     return gistId;
   }
   return null;
