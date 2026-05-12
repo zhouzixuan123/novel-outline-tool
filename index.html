@@ -231,7 +231,7 @@ function updateSyncUI() {
     pushBtn.disabled = false;
   } else {
     const t = localStorage.getItem('gist_last_sync') || '';
-    statusEl.innerHTML = '✅ 已连接' + (t ? '<br>上次同步: ' + t : '');
+    statusEl.innerHTML = '✅ Gist: <code style="font-size:10px;background:#e8e0d0;padding:1px 4px;border-radius:3px;">' + gistId.slice(-8) + '</code> <button onclick="reconnectGist()" style="background:none;border:1px solid #ccc;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;" title="重新搜索并绑定 Gist">⟳</button>' + (t ? '<br>上次同步: ' + t : '');
     tokenBtn.textContent = '🔑 已配置';
     pullBtn.disabled = false;
     pushBtn.disabled = false;
@@ -302,6 +302,19 @@ async function findOrCreateGist() {
     return gistId;
   }
   return null;
+}
+
+async function reconnectGist() {
+  if (!confirm('将清除当前 Gist 绑定并重新搜索，确定继续？')) return;
+  gistId = '';
+  localStorage.removeItem('gist_id');
+  updateSyncUI();
+  const found = await findOrCreateGist();
+  if (found) {
+    alert('已重新绑定 Gist: ' + found.id);
+  } else {
+    alert('未找到已有 Gist，请先推送一次。');
+  }
 }
 
 async function pushToGist() {
