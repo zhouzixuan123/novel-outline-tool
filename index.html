@@ -284,11 +284,35 @@ function setupToken() {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
+async function findOrCreateGist() {
+  if (gistId) return gistId;
+  const listResp = await fetch('https://api.github.com/gists?per_page=100', {
+    headers: { 'Authorization': `Bearer ${gistToken}`, 'Accept': 'application/vnd.github+json' }
+  });
+  if (!listResp.ok) {
+    const err = await listResp.json().catch(() => ({}));
+    throw new Error('搜索 Gist 失败: ' + (err.message || `HTTP ${listResp.status}`));
+  }
+  const gists = await listResp.json();
+  const found = gists.find(g => g.description === '小说大纲数据' && g.files['novel_outline.json']);
+  if (found) {
+    gistId = found.id;
+    localStorage.setItem('gist_id', gistId);
+    updateSyncUI();
+    return gistId;
+  }
+  return null;
+}
+
 async function pushToGist() {
   const pushBtn = document.getElementById('pushBtn');
   pushBtn.disabled = true;
   pushBtn.textContent = '⏳ 推送中...';
   try {
+    if (!gistId) {
+      pushBtn.textContent = '🔍 搜索中...';
+      await findOrCreateGist();
+    }
     const exp = JSON.parse(JSON.stringify(data));
     delete exp._lastModified;
     const content = JSON.stringify(exp, null, 2);
@@ -328,21 +352,8 @@ async function pullFromGist() {
   try {
     if (!gistId) {
       pullBtn.textContent = '🔍 搜索中...';
-      const listResp = await fetch('https://api.github.com/gists?per_page=100', {
-        headers: { 'Authorization': `Bearer ${gistToken}`, 'Accept': 'application/vnd.github+json' }
-      });
-      if (!listResp.ok) {
-        const err = await listResp.json().catch(() => ({}));
-        throw new Error('搜索 Gist 失败: ' + (err.message || `HTTP ${listResp.status}`));
-      }
-      const gists = await listResp.json();
-      const found = gists.find(g => g.description === '小说大纲数据' && g.files['novel_outline.json']);
-      if (!found) {
-        throw new Error('未找到小说大纲的 Gist，请先在另一设备上推送一次。');
-      }
-      gistId = found.id;
-      localStorage.setItem('gist_id', gistId);
-      updateSyncUI();
+      const found = await findOrCreateGist();
+      if (!found) throw new Error('未找到小说大纲的 Gist，请先在另一设备上推送一次。');
     }
     const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
       headers: { 'Authorization': `Bearer ${gistToken}`, 'Accept': 'application/vnd.github+json' }
